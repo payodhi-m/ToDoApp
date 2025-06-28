@@ -8,3 +8,4 @@ build/
 
 *.pyc
 .vscode/
+alembic/__pycache__/

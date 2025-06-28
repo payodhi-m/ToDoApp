@@ -1,0 +1,65 @@
+.todo-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: white;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.6rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.todo-item.completed .title {
+    text-decoration: line-through;
+    color: #999;
+
+}
+
+.todo-item .title {
+    flex-grow: 1;
+    margin-left: 0.6rem;
+    font-size: 1.1rem;
+
+}
+
+.todo-item .due-date {
+    margin-left: 1rem;
+    font-size: 0.9rem;
+    color: gray;
+}
+
+.todo-item.overdue .due-date {
+    color: #dc3545;
+    font-weight: 700;
+
+}
+
+.todo-item .actions {
+    margin-left: 1rem;
+    display: flex;
+    gap: 0.6rem;
+
+}
+
+.todo-item button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #007bff;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+
+}
+
+.todo-item button:hover {
+    background-color: #e7f1ff;
+
+}
+
+.todo-item .checkbox {
+    cursor: pointer;
+    transform: scale(1.3);
+}

@@ -90,10 +90,12 @@ npm start
 
 Frontend will be running on: http://localhost:3000
 
-Upcoming (Phase 2 Plan)
+```
+
+### Upcoming (Phase 2 Plan)
 
 Make the backend scalable, real-world ready.
 
-Contributing
+### Contributing
 Suggestions, bug reports, and contributions are welcome! Feel free to fork the repo and raise a pull request
 

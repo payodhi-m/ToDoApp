@@ -1,49 +1,43 @@
-# Full-Stack Todo App (React + FastAPI)
+# Simple TODO App (React + FastAPI)
 
-A simple and powerful full-stack Todo list application built using **React** for the frontend and **FastAPI** for the backend.
+A clean and user-friendly task management application built with **React** (frontend) and **FastAPI** (backend). Perfect for organizing daily tasks, managing priorities, and tracking productivity.
 
-## Phase 1 Features Implemented
+## Features
 
-### Core Features:
-- Create, update, delete tasks
-- Mark tasks as complete/incomplete
-- Task persistence using in-memory store (can be upgraded to DB later)
+### Task Management
+- ✅ Create, read, update, and delete tasks
+- ✅ Mark tasks as complete/incomplete
+- ✅ Task persistence with SQLite database
 
-### Filtering & Searching 
-- Filter tasks by:
-  - All
-  - Active (incomplete)
-  - Completed
-- Real-time search by task title
+### Task Organization
+- 📊 **Priority Levels** - Low, Medium, High, Critical
+- 📂 **Categories** - Organize tasks by custom categories
+- 🏷️ **Tags** - Flexible tagging system for cross-cutting concerns
+- ⏱️ **Time Tracking** - Estimate hours and track actual time spent
 
-### Due Date
-- Add optional due dates while creating/editing tasks
-- Overdue tasks highlighted in **red**
-- Due tasks (still pending) shown in **gray**
-- Completed tasks ignore due date color logic
+### Smart Views
+- **Today** - Tasks due today only
+- **Upcoming** - Tasks due in the next 7 days
+- **Overdue** - Past-due incomplete tasks
+- **All Tasks** - Complete task list
+- **Completed** - Historical completed tasks
+- **Agenda** - Calendar view for any date
 
-### Progress Bar
-- Visual indication of total % of tasks completed
-- Clean progress bar with smooth animation
+### Dashboard & Statistics
+- 📈 Stats cards showing total, completed, pending, and completion rate
+- 🎯 Quick navigation tabs for filtering
+- 🔍 Filter by category and priority
 
-### Task Completed Today
-- A counter showing how many tasks were marked completed **today**
-
-### Categories / Labels
-- Add category while creating/editing a task
-- Filter tasks by category via dropdown
-
-
-## Phase 2: Backend & Data Persistence
-- Integrated SQLite Database using SQLAlchemy ORM
-- Separated concerns: `models.py`, `schemas.py`, `crud.py`
-- Alembic for database migration
-- Used Pydantic v2 
-- Improved error handling
-- Wrote test cases using `pytest` and FastAPI's TestClient
+### Backend & Data Persistence
+- SQLite database with SQLAlchemy ORM
+- Clean architecture: `models.py`, `schemas.py`, `crud.py`
+- FastAPI with comprehensive REST API
+- Pydantic v2 for data validation
+- Proper error handling and logging
 
 
 ## Tech Stack
+
 | Layer     | Technology  |
 |-----------|-------------|
 | Frontend  | React (JavaScript) |
@@ -57,7 +51,7 @@ A simple and powerful full-stack Todo list application built using **React** for
 
 project-root/
 │
-├── backe
+├── backend/
  ├── main.py
  ├── models.py
  ├── schemas.py
@@ -76,46 +70,56 @@ project-root/
 └── README.md
 
 
-## Instructions to Run the code
-### Backend (FastAPI)
+## Quick Start
 
-1. Create and activate virtual environment:
+### Backend Setup
 
+1. Navigate to backend directory:
+```bash
+cd backend
+```
+
+2. Create and activate virtual environment:
 ```bash
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
-
-2. Install Dependencies:
-pip install fastapi uvicorn
-
-3. Run FastAPI server:
-uvicorn main:app --reload
-
-Backend will be running on: http://127.0.0.1:8000
-
-4. To run tests:
-python -m pytest
-
-5. To apply DB migration:
-alembic upgrade head
-
-### Frontend (React)
-1. Navigate to frontend folder
-cd frontend
-
-2. Install React dependencies
-npm install
-
-3. Start the development server
-npm start
-
-Frontend will be running on: http://localhost:3000
-
 ```
 
-### Upcoming (Phase 3 Plan)
+3. Install dependencies:
+```bash
+pip install -r requirement.txt
+```
 
-User Authentication + JWT-based login system
+4. Run FastAPI server:
+```bash
+uvicorn main:app --reload
+```
+
+Backend will be running on: **http://127.0.0.1:8000**
+
+### Frontend Setup
+
+1. Navigate to frontend directory:
+```bash
+cd frontend
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Start development server:
+```bash
+npm start
+```
+
+Frontend will open at **http://localhost:3000**
+
+## API Documentation
+
+Once the backend is running, visit **http://127.0.0.1:8000/docs** for interactive API documentation (Swagger UI).
+
 
 ### Contributing
 Suggestions, bug reports, and contributions are welcome! Feel free to fork the repo and raise a pull request

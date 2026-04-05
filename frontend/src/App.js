@@ -1,380 +1,505 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import TodoItem from "./TodoItem";
-import './App.css';
-import './TodoItem.css';
+import "./App.css";
+import "./TodoItem.css";
 
-const API_URL = "http://127.0.0.1:8000"
+const API_URL = "http://127.0.0.1:8000/api";
 
-function App(){
-  const [todos, setTodos] = useState([]);
-  const [newTitle, setNewTitle]  = useState("");
-  // const [filter, setFilter] = useState("all"); //all | active | completed
-  // const [searchQuery, setSearchQuery] = useState(""); //text search
-  const [newDueDate, setNewDueDate] = useState("");
-  const [newCategory, setNewCategory] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("All");
-  const [title, setTitle] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [category, setCategory] = useState("");
-  const [filter, setFilter] = useState("all");
-  const [filterCategory, setFilterCategory] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-
-  useEffect(() => {
-    fetchTodos();
-
-  }, []);
-
-
-  async function fetchTodos(){
-    const res = await fetch(`${API_URL}/todos`);
-    const data = await res.json();
-    setTodos(data);
-
-  }
-
-  async function addTodo(){
-    if(!newTitle.trim()) return;
-
-    const newTodo = {id: 0, title: newTitle, completed: false, due_date: newDueDate || null, category: newCategory || null,};
-    const res = await fetch(`${API_URL}/todos`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(newTodo),
-
-    });
-
-    const data = await res.json();
-    setTodos([...todos, data]);
-    setNewTitle("")
-    setNewDueDate("");
-    setNewCategory("");
-  }
-
-  async function toggleComplete(todo){
-    const updatedTodo = {
-      title: todo.title, 
-      completed: !todo.completed,
-      due_date: todo.due_date,
-      category: todo.category,};
-      
-      const response = await fetch(`${API_URL}/todos/${todo.id}`, {
-      method: "PUT",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(updatedTodo),
-    });
-
-    if(!response.ok){
-      console.error("Failed to update todo");
-      return;
-    }
-
-    const updated = await response.json();
-
-    //Refetching from back end instead of relying on local state
-    setTodos(todos.map(t => (t.id === updated.id ? updated : t)));
-    // setTodos(todos.map(t => t.id === todo.id ? { ...t, completed: !todo.completed }: t));
-  }
-
-  async function deleteTodo(todoId){
-    await fetch(`${API_URL}/todos/${todoId}`, {method: "DELETE"});
-    await fetchTodos();
-    setTodos(todos.filter(t => t.id !== todoId));
-  }
-
-  async function updateTodo(id, updatedTodo){
-    await fetch(`$(API_URL)/todos/${id}`, {
-      method: "PUT",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(updatedTodo),
-    });
-
-    setTodos((prevTodos) => prevTodos.map((t) => t.id === id ? { ...t, title: updatedTodo.title} : t));
-  }
-
-  const filterTodos = todos.filter((todo) => {
-    if (filter === "active") return !todo.completed;
-    if (filter === "completed") return todo.completed;
-    return true;
-  })
-  .filter((todo) => {
-    return todo.title.toLowerCase().includes(searchQuery.toLocaleLowerCase());
-  })
-  .filter((todo) => {
-    if (categoryFilter === "All") return true;
-    return todo.category === categoryFilter;
+function App() {
+  const [tasks, setTasks] = useState([]);
+  const [view, setView] = useState("today"); // today, upcoming, pending, completed, agenda
+  const [showForm, setShowForm] = useState(false);
+  
+  // Form state
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    due_date: "",
+    category: "",
+    priority: "medium",
+    estimated_hours: "",
+    tags: ""
   });
   
-  const totalTodos = todos.length;
-  const completedTodos = todos.filter(todo => todo.completed).length;
+  // Filters
+  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [priorityFilter, setPriorityFilter] = useState("All");
+  const [categories, setCategories] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [agendaDate, setAgendaDate] = useState(new Date().toISOString().split('T')[0]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const progressPercent = totalTodos === 0 ? 0 : Math.round((completedTodos / totalTodos) * 100);
+  useEffect(() => {
+    fetchTasks();
+    fetchCategories();
+    fetchStats();
+  }, []);
 
-  let progressColor = "#dc3545";
-  if (progressPercent >= 70){
-    progressColor = "#28a745";
-
+  async function fetchTasks() {
+    try {
+      setLoading(true);
+      const res = await fetch(`${API_URL}/tasks`);
+      if (!res.ok) throw new Error("Failed to fetch tasks");
+      const data = await res.json();
+      setTasks(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      setError("Failed to load tasks");
+    } finally {
+      setLoading(false);
+    }
   }
-  else if (progressPercent >=40){
-    progressColor = "#ffc107";
+
+  async function fetchCategories() {
+    try {
+      const res = await fetch(`${API_URL}/categories`);
+      if (res.ok) {
+        const data = await res.json();
+        setCategories(data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
   }
 
-  const taskCompletedToday = todos.filter(todo => {
-    if (!todo.completed_at) return false;
-    const completedDate = new Date(todo.completed_at);
-    const today = new Date();
-    return (
-      completedDate.getFullYear() === today.getFullYear() &&
-      completedDate.getMonth() === today.getMonth() &&
-      completedDate.getDate() === today.getDate()
-    );
-  }).length;
+  async function fetchStats() {
+    try {
+      const res = await fetch(`${API_URL}/stats`);
+      if (res.ok) {
+        const data = await res.json();
+        setStats(data);
+      }
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+    }
+  }
 
-  return (
-    <div className="app-container">
-      <h1 className="header">To-Do List</h1>
-      {/* <div className="filters">
-        <button
-          className={filter === "all" ? "active" : ""}
-          onClick={() => setFilter("all")} > All 
-        </button>
+  async function addTask(e) {
+    e.preventDefault();
+    if (!formData.title.trim()) return;
 
-        <button 
-          className={filter === "active" ? "active" : ""}
-          onClick={() => setFilter("active")}> Active
-        </button>
+    try {
+      const tagsArray = formData.tags
+        .split(",")
+        .map(tag => tag.trim())
+        .filter(tag => tag.length > 0);
 
-        <button 
-          className={filter === "completed" ? "active" : ""}
-          onClick={() => setFilter("completed")}> Completed
-        </button>
+      const res = await fetch(`${API_URL}/tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description || null,
+          due_date: formData.due_date || null,
+          category: formData.category || null,
+          priority: formData.priority,
+          estimated_hours: formData.estimated_hours ? parseFloat(formData.estimated_hours) : null,
+          tags: tagsArray.length > 0 ? tagsArray : null,
+          is_recurring: false
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to create task");
+      
+      const newTask = await res.json();
+      setTasks([newTask, ...tasks]);
+      setFormData({
+        title: "",
+        description: "",
+        due_date: "",
+        category: "",
+        priority: "medium",
+        estimated_hours: "",
+        tags: ""
+      });
+      setShowForm(false);
+      fetchStats();
+    } catch (error) {
+      console.error("Error adding task:", error);
+      setError("Failed to create task");
+    }
+  }
+
+  async function toggleComplete(taskId) {
+    try {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      const res = await fetch(`${API_URL}/tasks/${taskId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          completed: !task.completed
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to update task");
+      
+      const updated = await res.json();
+      setTasks(tasks.map(t => (t.id === updated.id ? updated : t)));
+      fetchStats();
+    } catch (error) {
+      console.error("Error updating task:", error);
+      setError("Failed to update task");
+    }
+  }
+
+  async function deleteTask(taskId) {
+    try {
+      const res = await fetch(`${API_URL}/tasks/${taskId}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error("Failed to delete task");
+      
+      setTasks(tasks.filter(t => t.id !== taskId));
+      fetchStats();
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      setError("Failed to delete task");
+    }
+  }
+
+  async function updateTask(taskId, updates) {
+    try {
+      if (updates.priority) {
+        updates.priority = updates.priority.toLowerCase();
+      }
+      
+      const res = await fetch(`${API_URL}/tasks/${taskId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+
+      if (!res.ok) throw new Error("Failed to update task");
+      
+      const updated = await res.json();
+      setTasks(tasks.map(t => (t.id === updated.id ? updated : t)));
+      fetchStats();
+    } catch (error) {
+      console.error("Error updating task:", error);
+      setError("Failed to update task");
+    }
+  }
+
+  const today = new Date();
+today.setHours(0, 0, 0, 0);
+
+const getFilteredTasks = () => {
+  let filtered = [...tasks];
+
+  // Filter by view
+  switch (view) {
+    case "today":
+      filtered = filtered.filter(task => {
+        if (task.completed) return false;
+        if (!task.due_date) return false;
+        const taskDate = new Date(task.due_date);
+        taskDate.setHours(0, 0, 0, 0);
+        return taskDate.getTime() === today.getTime();
+      });
+      break;
+
+    case "upcoming":
+      filtered = filtered.filter(task => {
+        if (task.completed) return false;
+        if (!task.due_date) return false;
+        const taskDate = new Date(task.due_date);
+        taskDate.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const sevenDaysFromNow = new Date(today);
+        sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+        return taskDate >= tomorrow && taskDate <= sevenDaysFromNow;
+      });
+      break;
+
+    case "overdue":
+      filtered = filtered.filter(task => {
+        if (task.completed) return false;
+        if (!task.due_date) return false;
+        const taskDate = new Date(task.due_date);
+        taskDate.setHours(0, 0, 0, 0);
+        return taskDate < today;
+      });
+      break;
+
+    case "pending":
+      filtered = filtered.filter(task => !task.completed);
+      break;
+
+    case "completed":
+      filtered = filtered.filter(task => task.completed);
+      break;
+
+    case "agenda":
+      filtered = filtered.filter(task => {
+        if (!task.due_date) return false;
+        const taskDate = new Date(task.due_date);
+        const selectedDate = new Date(agendaDate);
+        taskDate.setHours(0, 0, 0, 0);
+        selectedDate.setHours(0, 0, 0, 0);
+        return taskDate.getTime() === selectedDate.getTime();
+      });
+      break;
+
+    default:
+      break;
+  }
+
+  // Apply category filter
+  if (categoryFilter !== "All") {
+    filtered = filtered.filter(task => task.category === categoryFilter);
+  }
+
+  // Apply priority filter
+  if (priorityFilter !== "All") {
+    filtered = filtered.filter(task => task.priority === priorityFilter);
+  }
+
+  return filtered;
+};
+
+const displayedTasks = getFilteredTasks();
+
+const priorityColors = {
+  low: "#6c757d",
+  medium: "#ffc107",
+  high: "#fd7e14",
+  critical: "#dc3545",
+};
+
+return (
+  <div className="app-container">
+    <header className="app-header">
+      <h1>📝 My Tasks</h1>
+      <p className="subtitle">Stay organized and productive</p>
+    </header>
+
+    {error && (
+      <div className="error-message">
+        ⚠️ {error}
+        <button onClick={() => setError("")} className="close-btn">×</button>
       </div>
+    )}
 
-      <input
-        type="text"
-        placeholder="New To-Do"
-        value={newTitle}
-        onChange={(e) => setNewTitle(e.target.value)}
-      />
+    {/* STATS CARDS */}
+    {stats && (
+      <div className="stats-section">
+        <div className="stat-card">
+          <div className="stat-number">{stats.total_tasks}</div>
+          <div className="stat-label">Total Tasks</div>
+        </div>
+        <div className="stat-card completed">
+          <div className="stat-number">{stats.completed_tasks}</div>
+          <div className="stat-label">Completed</div>
+        </div>
+        <div className="stat-card pending">
+          <div className="stat-number">{stats.pending_tasks}</div>
+          <div className="stat-label">Pending</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-number">{stats.completion_rate.toFixed(0)}%</div>
+          <div className="stat-label">Completion Rate</div>
+        </div>
+      </div>
+    )}
 
-      <input
-        type="text"
-        placeholder="Category"
-        value={newCategory}
-        onChange={(e) => setNewCategory(e.target.value)}
-        style={{marginLeft: "0.5rem"}} />
+    {/* NAVIGATION TABS */}
+    <div className="nav-tabs">
+      <button
+        className={`tab ${view === "today" ? "active" : ""}`}
+        onClick={() => setView("today")}
+      >
+        📅 Today
+      </button>
+      <button
+        className={`tab ${view === "upcoming" ? "active" : ""}`}
+        onClick={() => setView("upcoming")}
+      >
+        📆 Upcoming
+      </button>
+      <button
+        className={`tab ${view === "overdue" ? "active" : ""}`}
+        onClick={() => setView("overdue")}
+      >
+        ⚠️ Overdue
+      </button>
+      <button
+        className={`tab ${view === "pending" ? "active" : ""}`}
+        onClick={() => setView("pending")}
+      >
+        📋 All Tasks
+      </button>
+      <button
+        className={`tab ${view === "completed" ? "active" : ""}`}
+        onClick={() => setView("completed")}
+      >
+        ✅ Completed
+      </button>
+      <button
+        className={`tab ${view === "agenda" ? "active" : ""}`}
+        onClick={() => setView("agenda")}
+      >
+        🗓️ Agenda
+      </button>
+    </div>
 
-      <input type="date"
-        value={newDueDate}
-        onChange={(e) => setNewDueDate(e.target.value)} />
-      <button className="actions" onClick={addTodo}>Add</button>
+    {/* ADD TASK BUTTON */}
+    {!showForm && (
+      <button className="btn-add-task" onClick={() => setShowForm(true)}>
+        + Add New Task
+      </button>
+    )}
 
-      {/* <div style ={{ marginBottom: "1rem"}}>
-          <button onClick={() => setFilter("all")}>All</button>
-          <button onClick={() => setFilter("active")}>Active</button>
-          <button onClick={() => setFilter("completed")}>Completed</button>
-
+    {/* ADD TASK FORM */}
+    {showForm && (
+      <form className="task-form" onSubmit={addTask}>
+        <div className="form-group">
           <input
-            className="search-input"
             type="text"
-            placeholder="Search todos"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            />
-      </div> */}
+            placeholder="What needs to be done?"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            required
+            className="form-input main"
+          />
+        </div>
 
-      {/* Progress Bar */}
-      {/* <div className="progress-bar-container"> 
-          <div style={{fontWeight: "bold", marginBottom: "0.5rem"}}>Progress : {progressPercent}%</div>
-          <div style={{ background: "#ddd", height: "12px", borderRadius: "8px", overflow: "hidden"}}>
-            <div className="progress-bar" style={{
-              width: `${progressPercent}%`,
-              height: "100%",
-              background: "#4caf50",
-              transition: "width 0.3s ease-in-out"
-            }}></div>
-          </div>
-          </div> */}
+        <div className="form-row">
+          <input
+            type="text"
+            placeholder="Description (optional)"
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            className="form-input"
+          />
+          <input
+            type="date"
+            value={formData.due_date}
+            onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+            className="form-input"
+          />
+        </div>
 
-      {/* <select
+        <div className="form-row">
+          <input
+            type="text"
+            placeholder="Category"
+            value={formData.category}
+            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+            className="form-input"
+          />
+          <select
+            value={formData.priority}
+            onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+            className="form-input"
+          >
+            <option value="low">Low Priority</option>
+            <option value="medium">Medium Priority</option>
+            <option value="high">High Priority</option>
+            <option value="critical">Critical</option>
+          </select>
+        </div>
+
+        <div className="form-row">
+          <input
+            type="number"
+            placeholder="Estimated hours (optional)"
+            step="0.5"
+            min="0"
+            value={formData.estimated_hours}
+            onChange={(e) => setFormData({ ...formData, estimated_hours: e.target.value })}
+            className="form-input"
+          />
+          <input
+            type="text"
+            placeholder="Tags (comma-separated)"
+            value={formData.tags}
+            onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+            className="form-input"
+          />
+        </div>
+
+        <div className="form-actions">
+          <button type="submit" className="btn-primary">Create Task</button>
+          <button
+            type="button"
+            className="btn-cancel"
+            onClick={() => setShowForm(false)}
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    )}
+
+    {/* FILTERS */}
+    <div className="filters">
+      <select
         value={categoryFilter}
         onChange={(e) => setCategoryFilter(e.target.value)}
-        style={{marginBottom: "1rem", marginLeft: "1rem"}}>
-      <option value = "All">All Category</option>
-      {[...new Set(todos.map(todo => todo.category).filter(Boolean))].map(cat => (<option key={cat} val={cat}>{cat}</option>))}
+        className="filter-select"
+      >
+        <option value="All">All Categories</option>
+        {categories.map((cat) => (
+          <option key={cat} value={cat}>{cat}</option>
+        ))}
       </select>
 
-      <div className="completed-today"> Task Completed today: {taskCompletedToday}
-      </div> */}
+      <select
+        value={priorityFilter}
+        onChange={(e) => setPriorityFilter(e.target.value)}
+        className="filter-select"
+      >
+        <option value="All">All Priorities</option>
+        <option value="critical">Critical</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+      </select>
 
+      {view === "agenda" && (
+        <input
+          type="date"
+          value={agendaDate}
+          onChange={(e) => setAgendaDate(e.target.value)}
+          className="filter-select"
+        />
+      )}
+    </div>
+
+    {/* TASKS LIST */}
+    <div className="tasks-container">
+      {loading && <div className="loading">Loading tasks...</div>}
       
-
-<form
-  className="todo-form"
-  onSubmit={async (e) => {
-    e.preventDefault();
-    if (!title.trim()) return;
-
-    const newTodo = {
-      title,
-      completed: false,
-      due_date: dueDate || null,
-      category,
-    };
-
-    const response = await fetch(`${API_URL}/todos`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newTodo),
-    });
-
-    const data = await response.json();
-    setTodos([...todos, data]);
-
-    // Reset input fields
-    setTitle("");
-    setDueDate("");
-    setCategory("");
-  }}
->
-  <input
-    type="text"
-    placeholder="Enter task title"
-    value={title}
-    onChange={(e) => setTitle(e.target.value)}
-  />
-
-  <input
-    type="date"
-    value={dueDate}
-    onChange={(e) => setDueDate(e.target.value)}
-  />
-
-  <input
-    type="text"
-    placeholder="Category (e.g., Work, Personal)"
-    value={category}
-    onChange={(e) => setCategory(e.target.value)}
-  />
-
-  <button type="submit"> Add Todo</button>
-</form>
-
-<div className="filters">
-  <button
-    className={filter === "all" ? "active" : ""}
-    onClick={() => setFilter("all")}
-  >
-    All
-  </button>
-  <button
-    className={filter === "active" ? "active" : ""}
-    onClick={() => setFilter("active")}
-  >
-    Active
-  </button>
-  <button
-    className={filter === "completed" ? "active" : ""}
-    onClick={() => setFilter("completed")}
-  >
-    Completed
-  </button>
-
-
-  <select
-    value={categoryFilter}
-    onChange={(e) => setCategoryFilter(e.target.value)}
-  >
-    <option value="All">All Categories</option>
-    {[...new Set(todos.map(todo => todo.category).filter(Boolean))].map(cat => (
-      <option key={cat} value={cat}>{cat}</option>
-    ))}
-  </select>
-
-  <input
-    type="text"
-    placeholder="Search by title..."
-    value={searchQuery}
-    onChange={(e) => setSearchQuery(e.target.value)}
-  />
-  {/* Progress Bar */}
-  <div className="progress-label">Progress : {progressPercent}%</div>
-       <div className="progress-bar-container"> 
-          
-            <div className="progress-bar" style={{
-              width: `${progressPercent}%`,
-              backgroundColor: progressColor
-            }}></div>
-
-        </div> 
-  <ul>
-        {filterTodos.map((todo) => (
-          <TodoItem
-            key={todo.id}
-            todo={todo}
-            toggleComplete={toggleComplete}
-            deleteTodo={deleteTodo}
-            updateTodo={updateTodo}/>
-        ))} 
-      </ul>
-   
-
-      <div className="completed-today"> Task Completed today: {taskCompletedToday}
-      </div>
-</div>
-        {/* {todos.map((todo) => (
-          <li key={todo.id} style={{ margin: "1rem 0" }}>
-            <input
-              type="checkbox"
-              checked={todo.completed}
-              onChange={() => toggleComplete(todo)}
-              // disabled={todo.completed}
+      {!loading && displayedTasks.length === 0 ? (
+        <div className="empty-state">
+          {view === "completed" && "No completed tasks yet!"}
+          {view === "today" && "No tasks for today. Enjoy your day! 🎉"}
+          {view === "upcoming" && "No upcoming tasks. You're all caught up! ✨"}
+          {view === "overdue" && "No overdue tasks. Great job! 👏"}
+          {view !== "completed" && view !== "today" && view !== "upcoming" && view !== "overdue" && "No tasks to show."}
+        </div>
+      ) : (
+        <div className="tasks-list">
+          {displayedTasks.map((task) => (
+            <TodoItem
+              key={task.id}
+              task={task}
+              onToggle={toggleComplete}
+              onDelete={deleteTask}
+              onUpdate={updateTask}
+              priorityColors={priorityColors}
             />
-            <span
-              style={{
-                textDecoration: todo.completed ? "line-through" : "none",
-                marginLeft: "0.5rem",
-              }}
-            >
-              {todo.title}
-            </span>
-            <button
-              onClick={() => deleteTodo(todo.id)}
-              style={{ marginLeft: "1rem" }}
-            >
-              Delete
-            </button>
-          </li>
-        ))} */}
-      {/* {/* </ul> */}
-    </div> 
-  );
-
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
+);
 }
-
-
-// import logo from './logo.svg';
-// import './App.css';
-
-// function App() {
-//   return (
-//     <div className="App">
-//       <header className="App-header">
-//         <img src={logo} className="App-logo" alt="logo" />
-//         <p>
-//           Edit <code>src/App.js</code> and save to reload.
-//         </p>
-//         <a
-//           className="App-link"
-//           href="https://reactjs.org"
-//           target="_blank"
-//           rel="noopener noreferrer"
-//         >
-//           Learn React
-//         </a>
-//       </header>
-//     </div>
-//   );
-// }
 
 export default App;
